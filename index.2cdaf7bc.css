@@ -1,0 +1,22 @@
+body {
+  margin: 0;
+}
+
+#data {
+  width: 150px;
+  height: 300px;
+  position: fixed;
+  top: 0;
+  left: 0;
+}
+
+.color-shadow {
+  background-color: #ff00004d;
+  width: 150px;
+  height: 30px;
+  position: fixed;
+  top: 0;
+  left: 0;
+}
+
+/*# sourceMappingURL=index.2cdaf7bc.css.map */
