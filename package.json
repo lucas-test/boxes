@@ -2,14 +2,16 @@
   "name": "boxes",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
   "scripts": {
-    "dev": "parcel src/index.html --port 3040"
+    "dev": "parcel src/index.html --port 3040",
+    "build": "parcel build src/index.html --public-url .",
+    "deploy": "gh-pages -d dist"
   },
   "author": "",
   "license": "ISC",
   "devDependencies": {
     "@types/three": "^0.159.0",
+    "gh-pages": "^6.1.0",
     "parcel": "^2.10.3",
     "typescript": "^5.3.3"
   },

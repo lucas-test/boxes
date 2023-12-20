@@ -2,13 +2,11 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
 
-const DIM = 3;
 const OPACITY = 0.5;
 
 
 
 
-const data = [];
 
 function parseContent(text: string, scene: THREE.Scene){
     console.log("parse ---")
@@ -84,7 +82,6 @@ function parseContent(text: string, scene: THREE.Scene){
     }
 
 
-    data.splice(0, data.length);
 }
 
 function setup(){
@@ -106,11 +103,6 @@ function setup(){
     camera.lookAt(0,0,0);
 
 
-    // const geometry = new THREE.BoxGeometry(1,1,1,1,1,1); 
-    // const mesh = new THREE.Mesh(geometry, material);
-    // mesh.position.set(0.5,0.5,0.5);
-    // scene.add(mesh)
-
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.autoRotate = false;
@@ -131,7 +123,7 @@ function setup(){
     const div = document.createElement("textarea");
     div.id = "data"
     document.body.appendChild(div);
-    div.value = "0 0 0\n2 1 1\n1 0 1\n1 1 1";
+    div.value = "0 0 0\n2 1 1 1 2 1\n1 0 1\n1 1 1";
     parseContent(div.value, scene);
 
     div.oninput = () => {
