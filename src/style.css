@@ -1,0 +1,22 @@
+body{
+    margin: 0;
+}
+
+#data{
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 150px;
+    height: 300px;
+
+
+}
+
+.color-shadow{
+    position: fixed;
+    top: 0;
+    left: 0;
+    background-color: rgba(255,0,0,0.3);
+    height: 30px;
+    width: 150px;
+}
