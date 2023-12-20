@@ -577,9 +577,7 @@ function hmrAccept(bundle /*: ParcelRequire */ , id /*: string */ ) {
 },{}],"43tDv":[function(require,module,exports) {
 var _three = require("three");
 var _orbitControlsJs = require("three/examples/jsm/controls/OrbitControls.js");
-const DIM = 3;
 const OPACITY = 0.5;
-const data = [];
 function parseContent(text, scene) {
     console.log("parse ---");
     const lol = text.split("\n").map((line)=>{
@@ -632,7 +630,6 @@ function parseContent(text, scene) {
         }
         colorIndex = (colorIndex + 1) % colors.length;
     }
-    data.splice(0, data.length);
 }
 function setup() {
     const scene = new _three.Scene();
@@ -649,10 +646,6 @@ function setup() {
     const camera = new _three.PerspectiveCamera(90, window.innerWidth / window.innerHeight, 0.5, 1000);
     camera.position.set(5, 5, 5);
     camera.lookAt(0, 0, 0);
-    // const geometry = new THREE.BoxGeometry(1,1,1,1,1,1); 
-    // const mesh = new THREE.Mesh(geometry, material);
-    // mesh.position.set(0.5,0.5,0.5);
-    // scene.add(mesh)
     const controls = new (0, _orbitControlsJs.OrbitControls)(camera, renderer.domElement);
     controls.autoRotate = false;
     controls.target.copy(new _three.Vector3(0, 0, 0));
@@ -666,7 +659,7 @@ function setup() {
     const div = document.createElement("textarea");
     div.id = "data";
     document.body.appendChild(div);
-    div.value = "0 0 0\n2 1 1\n1 0 1\n1 1 1";
+    div.value = "0 0 0\n2 1 1 1 2 1\n1 0 1\n1 1 1";
     parseContent(div.value, scene);
     div.oninput = ()=>{
         if (div.value) parseContent(div.value, scene);
