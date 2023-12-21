@@ -2,6 +2,15 @@ body{
     margin: 0;
 }
 
+#info {
+    position: fixed;
+    left: 0;
+    bottom: 0;
+    width: 150px;
+    height: 300px;
+    overflow: scroll;
+}
+
 #data{
     position: fixed;
     top: 0;

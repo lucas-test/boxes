@@ -19,3 +19,8 @@ In the input zone:
 - [ ] mettre en surbrillance quand on passe sur un stair
 - [ ] vérifier qu'il n'y a pas d'intersection
 - [ ] calculer le complexe de contact
+- [X] calculer DM <= 4
+- [ ] déplacer avec la souris ou les touches claviers
+- [ ] afficher les corners qui partagent une coordonnées
+- [ ] calculer la dimension des contacts
+- [ ] 

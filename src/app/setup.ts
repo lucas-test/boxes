@@ -1,5 +1,7 @@
+import { dushnikMillerDim } from 'representations';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { computeSimplicialComplex, printASC, Stair } from './stairs';
 
 
 const OPACITY = 0.5;
@@ -10,15 +12,20 @@ const OPACITY = 0.5;
 
 function parseContent(text: string, scene: THREE.Scene){
     console.log("parse ---")
+    let isValid = true;
     const lol = text.split("\n").map(line => {
         return line.split(" ").map(value => {
             const parsedValue = parseFloat(value);
             if (isNaN(parsedValue)){
-                throw new Error();
+                isValid = false;
             }
             return parsedValue;
         })
     })
+    if (isValid == false){
+        return;
+    }
+
     if (lol.length %2 == 1){
         return;
     }
@@ -51,36 +58,58 @@ function parseContent(text: string, scene: THREE.Scene){
     const colors = [0xFF0000, 0x00FF00, 0x0000FF, 0xFFFF00, 0xFF00FF, 0x00FFFF];
     let colorIndex = 0;
 
-    for (let i = 0 ; i < lol.length ; i ++){
-        if (i % 2 == 0){
-            const colorShadow = document.createElement("div");
-            colorShadow.classList.add("color-shadow");
-            colorShadow.style.top = (5+i*15) + "px"
-            colorShadow.style.backgroundColor = hexToRGBA(colors[colorIndex], 0.3);
-            document.body.appendChild(colorShadow);
+    const stairs = new Array<Stair>();
 
+
+    for (let i = 0 ; i < lol.length ; i +=2){
+        const colorShadow = document.createElement("div");
+        colorShadow.classList.add("color-shadow");
+        colorShadow.style.top = (5+i*15) + "px"
+        colorShadow.style.backgroundColor = hexToRGBA(colors[colorIndex], 0.3);
+        document.body.appendChild(colorShadow);
+
+        const dims = new Array<THREE.Vector3>();
+        const c = new THREE.Vector3(lol[i][0] , lol[i][1] , lol[i][2] )
+        for (let j = 0 ; j < lol[i+1].length ; j += 3){
+            const w = lol[i+1][j];
+            const h = lol[i+1][j+1];
+            const d = lol[i+1][j+2];
+            const geometry = new THREE.BoxGeometry(w, h,d); 
+            dims.push(new THREE.Vector3(w,h,d));
             
-            for (let j = 0 ; j < lol[i+1].length ; j += 3){
-                const w = lol[i+1][j];
-                const h = lol[i+1][j+1];
-                const d = lol[i+1][j+2];
-                const geometry = new THREE.BoxGeometry(w, h,d); 
-                
-                const material = new THREE.MeshBasicMaterial({color: colors[colorIndex],
-                transparent: true,
-            opacity: OPACITY}); // Red color
+            const material = new THREE.MeshBasicMaterial({color: colors[colorIndex],
+            transparent: true,
+        opacity: OPACITY}); // Red color
 
-                const mesh = new THREE.Mesh(geometry, material);
-                mesh.position.set(lol[i][0] + w/2, lol[i][1] + h/2, lol[i][2] + d/2);
-                scene.add(mesh)
-            }
-            colorIndex = (colorIndex + 1)% colors.length;
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.position.set(lol[i][0] + w/2, lol[i][1] + h/2, lol[i][2] + d/2);
+            scene.add(mesh)
         }
-        
-       
 
+        stairs.push(new Stair(c, dims))
+
+        colorIndex = (colorIndex + 1)% colors.length;
     }
 
+
+    const faces = computeSimplicialComplex(stairs);
+    printASC(faces);
+    const delta = faces.map(v => Array.from(v));
+
+    const info = document.getElementById("info");
+    if (info){
+        info.innerHTML = "Faces:<br>";
+        for (const face of delta){
+            info.innerHTML += face.toString();
+            info.innerHTML += "<br>"
+        }
+
+        info.innerHTML += "DM <= 4 ? " + (typeof dushnikMillerDim(delta, 4) != "undefined" ? "OK" : "X")
+        
+    }
+
+    console.log("representation:")
+    console.log(dushnikMillerDim(delta, 4))
 
 }
 
@@ -104,6 +133,25 @@ function setup(){
 
 
 
+    // Raycaster
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
+    function onDocumentMouseDown(event) {
+        event.preventDefault();
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        raycaster.setFromCamera(mouse, camera);
+        var intersects = raycaster.intersectObjects(scene.children);
+        if (intersects.length > 0) {
+            console.log("Clicked object:", intersects[0].object);
+        }
+     }
+    
+    // renderer.domElement.addEventListener('mousedown', onDocumentMouseDown, false);
+
+
+    // Controls
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.autoRotate = false;
     controls.target.copy(new THREE.Vector3(0,0,0))
@@ -117,9 +165,14 @@ function setup(){
     renderer.render(scene, camera);
 
 
+    // Info
+    const info = document.createElement("div");
+    info.id = "info";
+    document.body.appendChild(info);
 
 
 
+    // Input
     const div = document.createElement("textarea");
     div.id = "data"
     document.body.appendChild(div);
