@@ -575,18 +575,22 @@ function hmrAccept(bundle /*: ParcelRequire */ , id /*: string */ ) {
 }
 
 },{}],"43tDv":[function(require,module,exports) {
+var _representations = require("representations");
 var _three = require("three");
 var _orbitControlsJs = require("three/examples/jsm/controls/OrbitControls.js");
+var _stairs = require("./stairs");
 const OPACITY = 0.5;
 function parseContent(text, scene) {
     console.log("parse ---");
+    let isValid = true;
     const lol = text.split("\n").map((line)=>{
         return line.split(" ").map((value)=>{
             const parsedValue = parseFloat(value);
-            if (isNaN(parsedValue)) throw new Error();
+            if (isNaN(parsedValue)) isValid = false;
             return parsedValue;
         });
     });
+    if (isValid == false) return;
     if (lol.length % 2 == 1) return;
     for(let i = 0; i < lol.length; i++)if (i % 2 == 0) {
         if (lol[i].length != 3) return;
@@ -608,17 +612,21 @@ function parseContent(text, scene) {
         0x00FFFF
     ];
     let colorIndex = 0;
-    for(let i = 0; i < lol.length; i++)if (i % 2 == 0) {
+    const stairs = new Array();
+    for(let i = 0; i < lol.length; i += 2){
         const colorShadow = document.createElement("div");
         colorShadow.classList.add("color-shadow");
         colorShadow.style.top = 5 + i * 15 + "px";
         colorShadow.style.backgroundColor = hexToRGBA(colors[colorIndex], 0.3);
         document.body.appendChild(colorShadow);
+        const dims = new Array();
+        const c = new _three.Vector3(lol[i][0], lol[i][1], lol[i][2]);
         for(let j = 0; j < lol[i + 1].length; j += 3){
             const w = lol[i + 1][j];
             const h = lol[i + 1][j + 1];
             const d = lol[i + 1][j + 2];
             const geometry = new _three.BoxGeometry(w, h, d);
+            dims.push(new _three.Vector3(w, h, d));
             const material = new _three.MeshBasicMaterial({
                 color: colors[colorIndex],
                 transparent: true,
@@ -628,8 +636,23 @@ function parseContent(text, scene) {
             mesh.position.set(lol[i][0] + w / 2, lol[i][1] + h / 2, lol[i][2] + d / 2);
             scene.add(mesh);
         }
+        stairs.push(new (0, _stairs.Stair)(c, dims));
         colorIndex = (colorIndex + 1) % colors.length;
     }
+    const faces = (0, _stairs.computeSimplicialComplex)(stairs);
+    (0, _stairs.printASC)(faces);
+    const delta = faces.map((v)=>Array.from(v));
+    const info = document.getElementById("info");
+    if (info) {
+        info.innerHTML = "Faces:<br>";
+        for (const face of delta){
+            info.innerHTML += face.toString();
+            info.innerHTML += "<br>";
+        }
+        info.innerHTML += "DM <= 4 ? " + (typeof (0, _representations.dushnikMillerDim)(delta, 4) != "undefined" ? "OK" : "X");
+    }
+    console.log("representation:");
+    console.log((0, _representations.dushnikMillerDim)(delta, 4));
 }
 function setup() {
     const scene = new _three.Scene();
@@ -646,6 +669,19 @@ function setup() {
     const camera = new _three.PerspectiveCamera(90, window.innerWidth / window.innerHeight, 0.5, 1000);
     camera.position.set(5, 5, 5);
     camera.lookAt(0, 0, 0);
+    // Raycaster
+    const raycaster = new _three.Raycaster();
+    const mouse = new _three.Vector2();
+    function onDocumentMouseDown(event) {
+        event.preventDefault();
+        mouse.x = event.clientX / window.innerWidth * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        raycaster.setFromCamera(mouse, camera);
+        var intersects = raycaster.intersectObjects(scene.children);
+        if (intersects.length > 0) console.log("Clicked object:", intersects[0].object);
+    }
+    // renderer.domElement.addEventListener('mousedown', onDocumentMouseDown, false);
+    // Controls
     const controls = new (0, _orbitControlsJs.OrbitControls)(camera, renderer.domElement);
     controls.autoRotate = false;
     controls.target.copy(new _three.Vector3(0, 0, 0));
@@ -656,6 +692,11 @@ function setup() {
     }
     animate();
     renderer.render(scene, camera);
+    // Info
+    const info = document.createElement("div");
+    info.id = "info";
+    document.body.appendChild(info);
+    // Input
     const div = document.createElement("textarea");
     div.id = "data";
     document.body.appendChild(div);
@@ -684,7 +725,7 @@ function hexToRGBA(hex, alpha) {
 }
 setup();
 
-},{"three":"ktPTu","three/examples/jsm/controls/OrbitControls.js":"7mqRv"}],"ktPTu":[function(require,module,exports) {
+},{"three":"ktPTu","three/examples/jsm/controls/OrbitControls.js":"7mqRv","./stairs":"hcvnf","representations":"mlVJW"}],"ktPTu":[function(require,module,exports) {
 /**
  * @license
  * Copyright 2010-2023 Three.js Authors
@@ -32296,6 +32337,444 @@ class OrbitControls extends (0, _three.EventDispatcher) {
     }
 }
 
-},{"three":"ktPTu","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}]},["kn67Z","43tDv"], "43tDv", "parcelRequiree6f1")
+},{"three":"ktPTu","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"hcvnf":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "Stair", ()=>Stair);
+parcelHelpers.export(exports, "stairsIntersection", ()=>stairsIntersection);
+parcelHelpers.export(exports, "computeSimplicialComplex", ()=>computeSimplicialComplex);
+parcelHelpers.export(exports, "printASC", ()=>printASC);
+function intervalIntersection(a, b, c, d) {
+    // return (c <= a && a <= d) || (a <= c && c <= b)
+    return d >= a && c <= b;
+}
+function intervalsIntersection(intervals) {
+    let left = intervals[0][0];
+    let right = intervals[0][1];
+    for(let i = 1; i < intervals.length; i++){
+        left = Math.max(intervals[i][0], left);
+        right = Math.min(intervals[i][1], right);
+    }
+    return left <= right;
+}
+function intervalsIntersectionDim(intervals) {
+    let left = intervals[0][0];
+    let right = intervals[0][1];
+    for(let i = 1; i < intervals.length; i++){
+        left = Math.max(intervals[i][0], left);
+        right = Math.min(intervals[i][1], right);
+    }
+    if (left < right) return 1;
+    else if (left == right) return 0;
+    else return -1;
+}
+function boxesIntersectionDim(xIntervals, yIntervals, zIntervals) {
+    const xdim = intervalsIntersectionDim(xIntervals);
+    const ydim = intervalsIntersectionDim(yIntervals);
+    const zdim = intervalsIntersectionDim(zIntervals);
+    if (xdim == -1 || ydim == -1 || zdim == -1) return -1;
+    else return xdim + ydim + zdim;
+}
+class Stair {
+    constructor(c, dims){
+        this.c = c;
+        this.dims = dims;
+    }
+}
+function auxStairsIntersection(stairs, i, xIntervals, yIntervals, zIntervals) {
+    if (i >= stairs.length) {
+        const interDim = boxesIntersectionDim(xIntervals, yIntervals, zIntervals);
+        if (interDim >= 0) console.log(interDim);
+        return intervalsIntersection(xIntervals) && intervalsIntersection(yIntervals) && intervalsIntersection(zIntervals);
+    }
+    const stair = stairs[i];
+    for (const dim of stair.dims){
+        xIntervals.push([
+            stair.c.x,
+            stair.c.x + dim.x
+        ]);
+        yIntervals.push([
+            stair.c.y,
+            stair.c.y + dim.y
+        ]);
+        zIntervals.push([
+            stair.c.z,
+            stair.c.z + dim.z
+        ]);
+        if (auxStairsIntersection(stairs, i + 1, xIntervals, yIntervals, zIntervals)) return true;
+        xIntervals.pop();
+        yIntervals.pop();
+        zIntervals.pop();
+    }
+}
+function stairsIntersection(stairs) {
+    const xIntervals = [];
+    const yIntervals = [];
+    const zIntervals = [];
+    return auxStairsIntersection(stairs, 0, xIntervals, yIntervals, zIntervals);
+}
+function computeSimplicialComplex(stairs) {
+    console.log("compute complex:");
+    const faces = new Array();
+    for(let i = 0; i < stairs.length; i++){
+        for(let j = i + 1; j < stairs.length; j++)if (stairsIntersection([
+            stairs[i],
+            stairs[j]
+        ])) faces.push(new Set([
+            i,
+            j
+        ]));
+    }
+    for(let i = 0; i < stairs.length; i++)for(let j = i + 1; j < stairs.length; j++){
+        for(let k = j + 1; k < stairs.length; k++)if (stairsIntersection([
+            stairs[i],
+            stairs[j],
+            stairs[k]
+        ])) faces.push(new Set([
+            i,
+            j,
+            k
+        ]));
+    }
+    return faces;
+}
+function printASC(faces) {
+    console.log("faces:");
+    for (const f of faces)console.log(f);
+}
+
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"mlVJW":[function(require,module,exports) {
+"use strict";
+var __createBinding = this && this.__createBinding || (Object.create ? function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, {
+        enumerable: true,
+        get: function() {
+            return m[k];
+        }
+    });
+} : function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+});
+var __exportStar = this && this.__exportStar || function(m, exports1) {
+    for(var p in m)if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports1, p)) __createBinding(exports1, m, p);
+};
+Object.defineProperty(exports, "__esModule", {
+    value: true
+});
+__exportStar(require("e9e625c40fc0cd14"), exports);
+
+},{"e9e625c40fc0cd14":"3vpDC"}],"3vpDC":[function(require,module,exports) {
+"use strict";
+Object.defineProperty(exports, "__esModule", {
+    value: true
+});
+exports.moveLeft = exports.moveRight = exports.dushnikMillerDim = exports.checkInclusion = void 0;
+/**
+ * Algorithm:
+ * For every face, we compute the elements which are dominating the face.
+ * If the number of these elements is < than the number of elements, then this face is not in Sigma(R).
+ * @param delta
+ * @param elts
+ * @param rep
+ * @returns
+ */ function checkInclusion(delta, elts, rep) {
+    const n = rep[0].length;
+    const d = rep.length;
+    for (const [index, face] of delta.entries()){
+        const dominatingElts = new Set();
+        for(let i = 0; i < d; i++)for(let j = n - 1; j >= 0; j--){
+            dominatingElts.add(rep[i][j]);
+            if (face.has(rep[i][j])) break;
+        }
+        if (dominatingElts.size < n) for(let j = 0; j < n; j++){
+            if (dominatingElts.has(rep[0][j]) == false) return [
+                index,
+                rep[0][j]
+            ];
+        }
+    }
+    return undefined;
+}
+exports.checkInclusion = checkInclusion;
+function auxDM(delta, insertedElts, todo, d, rep) {
+    const v = todo.pop();
+    if (typeof v == "undefined") // Finito: a representation has been found
+    // console.log(rep);   
+    return rep;
+    insertedElts.add(v);
+    // Insert v at the beggining of each order
+    for(let i = 0; i < d; i++)rep[i].unshift(v);
+    const m = rep[d - 1].length;
+    const pos = new Array(d).fill(0);
+    while(true){
+        // Check if delta is included in the Sigma(R)
+        const r = checkInclusion(delta, insertedElts, rep);
+        if (typeof r == "undefined") {
+            const result = auxDM(delta, insertedElts, todo, d, rep);
+            if (typeof result != "undefined") return result;
+            let isMaximal = true;
+            for(let i = d - 1; i >= 0; i--)if (pos[i] == m - 1) {
+                moveLeft(rep[i], pos[i], 0);
+                pos[i] = 0;
+            } else {
+                moveRight(rep[i], pos[i], pos[i] + 1);
+                pos[i]++;
+                isMaximal = false;
+                break;
+            }
+            if (isMaximal) {
+                // Clean
+                insertedElts.delete(v);
+                for(let i = 0; i < d; i++)rep[i].splice(pos[i], 1);
+                todo.push(v);
+                return undefined;
+            }
+        } else {
+            const [faceIndex, nonDominatingElt] = r;
+            const face = delta[faceIndex];
+            if (v == nonDominatingElt) {
+                // Move right v just after the max element of face in rep[d-1]
+                for(let i = m - 1; i >= 0; i--)if (face.has(rep[d - 1][i])) {
+                    moveRight(rep[d - 1], pos[d - 1], i);
+                    pos[d - 1] = i;
+                    break;
+                }
+            } else {
+                // Compute the last order where y < v (y = nonDominatingElt)
+                let i = d - 1;
+                while(i >= 0){
+                    const j = rep[i].indexOf(nonDominatingElt);
+                    if (j < pos[i]) break;
+                    i--;
+                }
+                let isMaximal = true;
+                for(let j = i - 1; j >= 0; j--)if (pos[j] < m - 1) {
+                    moveRight(rep[j], pos[j], pos[j] + 1);
+                    pos[j]++;
+                    isMaximal = false;
+                    break;
+                } else {
+                    moveLeft(rep[j], pos[j], 0);
+                    pos[j] = 0;
+                }
+                if (isMaximal) {
+                    // Clean
+                    insertedElts.delete(v);
+                    for(let j = 0; j < d; j++)rep[j].splice(pos[j], 1);
+                    todo.push(v);
+                    return undefined;
+                }
+                // Else 
+                for(let j = i; j < d; j++){
+                    moveLeft(rep[j], pos[j], 0);
+                    pos[j] = 0;
+                }
+            }
+        }
+    }
+}
+function dushnikMillerDim(faces, d) {
+    const delta = faces.map((v)=>new Set(v));
+    const vertices = new Set();
+    for (const face of delta)for (const elt of face)vertices.add(elt);
+    // Initialize the representation
+    const rep = new Array();
+    for(let i = 0; i < d; i++)rep.push(new Array());
+    const insertedElts = new Set();
+    const todo = Array.from(vertices);
+    return auxDM(delta, insertedElts, todo, d, rep);
+}
+exports.dushnikMillerDim = dushnikMillerDim;
+function moveRight(t, i, j) {
+    const x = t[i];
+    for(let k = i + 1; k <= j; k++)t[k - 1] = t[k];
+    t[j] = x;
+}
+exports.moveRight = moveRight;
+function moveLeft(t, i, j) {
+    const x = t[i];
+    for(let k = i - 1; k >= j; k--)t[k + 1] = t[k];
+    t[j] = x;
+}
+exports.moveLeft = moveLeft;
+function measure(faces, d) {
+    console.time("DM");
+    console.log(dushnikMillerDim(faces, d));
+    console.timeEnd("DM");
+}
+measure([
+    [
+        1,
+        2,
+        3
+    ],
+    [
+        1,
+        2,
+        4
+    ],
+    [
+        1,
+        3,
+        5
+    ],
+    [
+        2,
+        3,
+        5
+    ]
+], 4); // 9ms
+measure([
+    [
+        1,
+        2,
+        3
+    ],
+    [
+        1,
+        2,
+        4
+    ],
+    [
+        1,
+        3,
+        5
+    ],
+    [
+        2,
+        3,
+        5
+    ],
+    [
+        2,
+        4,
+        5
+    ],
+    [
+        3,
+        4,
+        5
+    ]
+], 4); // 2ms
+measure([
+    [
+        1,
+        2
+    ],
+    [
+        1,
+        3
+    ],
+    [
+        1,
+        4
+    ],
+    [
+        1,
+        5
+    ],
+    [
+        2,
+        3
+    ],
+    [
+        2,
+        4
+    ],
+    [
+        2,
+        5
+    ],
+    [
+        3,
+        4
+    ],
+    [
+        3,
+        5
+    ],
+    [
+        4,
+        5
+    ]
+], 3); // 35ms
+measure([
+    [
+        1,
+        2,
+        3
+    ],
+    [
+        1,
+        2,
+        4
+    ],
+    [
+        2,
+        3,
+        5
+    ],
+    [
+        1,
+        3,
+        6
+    ]
+], 4); // 0.3ms
+measure([
+    [
+        1,
+        2,
+        3
+    ],
+    [
+        2,
+        3,
+        4
+    ],
+    [
+        3,
+        4,
+        5
+    ],
+    [
+        4,
+        5,
+        6
+    ],
+    [
+        5,
+        6,
+        7
+    ],
+    [
+        6,
+        7,
+        8
+    ],
+    [
+        1,
+        3,
+        5
+    ],
+    [
+        3,
+        5,
+        7
+    ],
+    [
+        2,
+        4,
+        6
+    ],
+    [
+        4,
+        6,
+        8
+    ]
+], 4); // 3ms
+
+},{}]},["kn67Z","43tDv"], "43tDv", "parcelRequiree6f1")
 
 //# sourceMappingURL=index.9e83bd44.js.map
