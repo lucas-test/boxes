@@ -1,11 +1,12 @@
 import { dushnikMillerDim } from 'representations';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { computeSimplicialComplex, printASC, Stair } from './stairs';
+import { checkContactDimension, computeIntersectionComplex, isPacking, Stair } from './stairs';
 
 
 const OPACITY = 0.5;
 
+const elements = new Array();
 
 
 
@@ -60,6 +61,8 @@ function parseContent(text: string, scene: THREE.Scene){
 
     const stairs = new Array<Stair>();
 
+    const stairsData = document.getElementById("stairs-data");
+    stairsData.innerHTML = "";
 
     for (let i = 0 ; i < lol.length ; i +=2){
         const colorShadow = document.createElement("div");
@@ -67,6 +70,9 @@ function parseContent(text: string, scene: THREE.Scene){
         colorShadow.style.top = (5+i*15) + "px"
         colorShadow.style.backgroundColor = hexToRGBA(colors[colorIndex], 0.3);
         document.body.appendChild(colorShadow);
+
+
+        const meshes = new Array<THREE.Mesh>();
 
         const dims = new Array<THREE.Vector3>();
         const c = new THREE.Vector3(lol[i][0] , lol[i][1] , lol[i][2] )
@@ -84,6 +90,13 @@ function parseContent(text: string, scene: THREE.Scene){
             const mesh = new THREE.Mesh(geometry, material);
             mesh.position.set(lol[i][0] + w/2, lol[i][1] + h/2, lol[i][2] + d/2);
             scene.add(mesh)
+            meshes.push(mesh);
+        }
+
+        colorShadow.onclick = (e) => {
+            for (const mesh of meshes){
+                mesh.visible = !mesh.visible;
+            }
         }
 
         stairs.push(new Stair(c, dims))
@@ -91,25 +104,66 @@ function parseContent(text: string, scene: THREE.Scene){
         colorIndex = (colorIndex + 1)% colors.length;
     }
 
+    
 
-    const faces = computeSimplicialComplex(stairs);
-    printASC(faces);
-    const delta = faces.map(v => Array.from(v));
+
+    // const faces = computeSimplicialComplex(stairs);
+    // printASC(faces);
+    // const delta = faces.map(v => Array.from(v));
+
+    console.time("IC");
+    const faces2 = computeIntersectionComplex(stairs);
+    console.timeEnd("IC");
+    const faces2bis = Array.from(faces2);
+
+    function computeDM(){
+        const faces2ter = faces2bis.map(v => Array.from(v));
+        console.time("DM");
+        const repre = dushnikMillerDim(faces2ter, 4);
+        console.timeEnd("DM");
+        const button = document.getElementById("dm4");
+        if (typeof repre == "undefined"){
+            button.textContent = "NO"
+        } else {
+            button.textContent = "YES"
+        }
+        // console.log(repre);
+    }
+    
+
+    // Check packing
+    const isPack = isPacking(stairs);
+
+    // Compute contact dimension
+    const contactProperty = checkContactDimension(stairs);
 
     const info = document.getElementById("info");
     if (info){
-        info.innerHTML = "Faces:<br>";
-        for (const face of delta){
-            info.innerHTML += face.toString();
+        info.innerHTML = "<b>Faces:</b><br>";
+        for (const face of faces2){
+            info.innerHTML += Array.from(face).toString();
             info.innerHTML += "<br>"
         }
 
-        info.innerHTML += "DM <= 4 ? " + (typeof dushnikMillerDim(delta, 4) != "undefined" ? "OK" : "X")
+        // info.innerHTML += "Faces:<br>";
+        // for (const face of delta){
+        //     info.innerHTML += face.toString();
+        //     info.innerHTML += "<br>"
+        // }
+
+        info.innerHTML += "is packing ? " + (isPack ? "OK" : "X") + "<br>";
+
+
+        info.innerHTML += "contact dim ? " + (typeof contactProperty == "undefined" ? "OK" : contactProperty.toString())
+        info.innerHTML += "<br>"
+        info.innerHTML += "DM <= 4 ? " + "<button id='dm4'>compute</button>"
         
+        const button = document.getElementById("dm4");
+        button.addEventListener("click", computeDM);
     }
 
-    console.log("representation:")
-    console.log(dushnikMillerDim(delta, 4))
+    
+
 
 }
 
@@ -170,13 +224,47 @@ function setup(){
     info.id = "info";
     document.body.appendChild(info);
 
+    // Stairs Data
+    const stairsData = document.createElement("div");
+    stairsData.id = "stairs-data";
+    document.body.appendChild(stairsData);
 
 
     // Input
     const div = document.createElement("textarea");
     div.id = "data"
     document.body.appendChild(div);
-    div.value = "0 0 0\n2 1 1 1 2 1\n1 0 1\n1 1 1";
+    div.value = 
+`2 -1 0
+1 4 1 1 1 3
+-1 0 2
+4 1 1 1 3 1
+0 2 -1
+1 1 4 3 1 1
+-2 -2 -2
+4 3.5 3 5 4 2 2 5 4 4 2 5 3 4 3.5 3.5 3 4
+1 1 1
+2 2 2
+-5 3 -4
+9 1 8
+-4 -5 3
+7 8 1
+3 -4 -5
+1 7 9`;
+/*
+
+
+`2 0 0
+1 3 2
+0 0 2
+3 2 1
+0 2 0
+2 1 3
+1 1 1
+1 1 1
+0 0 0
+2 2 1 2 1 2 1 2 2`;
+*/
     parseContent(div.value, scene);
 
     div.oninput = () => {
@@ -184,6 +272,11 @@ function setup(){
             parseContent(div.value, scene);
         }
     }
+
+
+    // console.time("test")
+    // dushnikMillerDim([[0,1,2,5],[0,1,3,4],[0,2,3,4],[1,2,3,4]], 4)
+    // console.timeEnd("test")
     
 }
 

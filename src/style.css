@@ -4,18 +4,24 @@ body{
 
 #info {
     position: fixed;
+    right: 0;
+    top: 0;
+    width: 180px;
+    overflow: scroll;
+}
+
+#stairs-data {
+    position: fixed;
     left: 0;
     bottom: 0;
-    width: 150px;
-    height: 300px;
-    overflow: scroll;
+    width: 100px;
 }
 
 #data{
     position: fixed;
     top: 0;
     left: 0;
-    width: 150px;
+    width: 350px;
     height: 300px;
 
 

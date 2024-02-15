@@ -17,10 +17,10 @@ In the input zone:
 
 - [ ] afficher les corners
 - [ ] mettre en surbrillance quand on passe sur un stair
-- [ ] vérifier qu'il n'y a pas d'intersection
-- [ ] calculer le complexe de contact
+- [X] vérifier qu'il n'y a pas d'intersection
+- [X] calculer le complexe de contact
 - [X] calculer DM <= 4
 - [ ] déplacer avec la souris ou les touches claviers
 - [ ] afficher les corners qui partagent une coordonnées
-- [ ] calculer la dimension des contacts
-- [ ] 
+- [X] calculer la dimension des contacts
+
