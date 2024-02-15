@@ -580,6 +580,7 @@ var _three = require("three");
 var _orbitControlsJs = require("three/examples/jsm/controls/OrbitControls.js");
 var _stairs = require("./stairs");
 const OPACITY = 0.5;
+const elements = new Array();
 function parseContent(text, scene) {
     console.log("parse ---");
     let isValid = true;
@@ -613,12 +614,15 @@ function parseContent(text, scene) {
     ];
     let colorIndex = 0;
     const stairs = new Array();
+    const stairsData = document.getElementById("stairs-data");
+    stairsData.innerHTML = "";
     for(let i = 0; i < lol.length; i += 2){
         const colorShadow = document.createElement("div");
         colorShadow.classList.add("color-shadow");
         colorShadow.style.top = 5 + i * 15 + "px";
         colorShadow.style.backgroundColor = hexToRGBA(colors[colorIndex], 0.3);
         document.body.appendChild(colorShadow);
+        const meshes = new Array();
         const dims = new Array();
         const c = new _three.Vector3(lol[i][0], lol[i][1], lol[i][2]);
         for(let j = 0; j < lol[i + 1].length; j += 3){
@@ -635,24 +639,54 @@ function parseContent(text, scene) {
             const mesh = new _three.Mesh(geometry, material);
             mesh.position.set(lol[i][0] + w / 2, lol[i][1] + h / 2, lol[i][2] + d / 2);
             scene.add(mesh);
+            meshes.push(mesh);
         }
+        colorShadow.onclick = (e)=>{
+            for (const mesh of meshes)mesh.visible = !mesh.visible;
+        };
         stairs.push(new (0, _stairs.Stair)(c, dims));
         colorIndex = (colorIndex + 1) % colors.length;
     }
-    const faces = (0, _stairs.computeSimplicialComplex)(stairs);
-    (0, _stairs.printASC)(faces);
-    const delta = faces.map((v)=>Array.from(v));
+    // const faces = computeSimplicialComplex(stairs);
+    // printASC(faces);
+    // const delta = faces.map(v => Array.from(v));
+    console.time("IC");
+    const faces2 = (0, _stairs.computeIntersectionComplex)(stairs);
+    console.timeEnd("IC");
+    const faces2bis = Array.from(faces2);
+    function computeDM() {
+        const faces2ter = faces2bis.map((v)=>Array.from(v));
+        console.time("DM");
+        const repre = (0, _representations.dushnikMillerDim)(faces2ter, 4);
+        console.timeEnd("DM");
+        const button = document.getElementById("dm4");
+        if (typeof repre == "undefined") button.textContent = "NO";
+        else button.textContent = "YES";
+    // console.log(repre);
+    }
+    // Check packing
+    const isPack = (0, _stairs.isPacking)(stairs);
+    // Compute contact dimension
+    const contactProperty = (0, _stairs.checkContactDimension)(stairs);
     const info = document.getElementById("info");
     if (info) {
-        info.innerHTML = "Faces:<br>";
-        for (const face of delta){
-            info.innerHTML += face.toString();
+        info.innerHTML = "<b>Faces:</b><br>";
+        for (const face of faces2){
+            info.innerHTML += Array.from(face).toString();
             info.innerHTML += "<br>";
         }
-        info.innerHTML += "DM <= 4 ? " + (typeof (0, _representations.dushnikMillerDim)(delta, 4) != "undefined" ? "OK" : "X");
+        // info.innerHTML += "Faces:<br>";
+        // for (const face of delta){
+        //     info.innerHTML += face.toString();
+        //     info.innerHTML += "<br>"
+        // }
+        info.innerHTML += "is packing ? " + (isPack ? "OK" : "X") + "<br>";
+        info.innerHTML += "contact dim ? " + (typeof contactProperty == "undefined" ? "OK" : contactProperty.toString());
+        info.innerHTML += "<br>";
+        info.innerHTML += "DM <= 4 ? <button id='dm4'>compute</button>";
+        const button = document.getElementById("dm4");
+        button.addEventListener("click", computeDM);
     }
-    console.log("representation:");
-    console.log((0, _representations.dushnikMillerDim)(delta, 4));
 }
 function setup() {
     const scene = new _three.Scene();
@@ -696,15 +730,50 @@ function setup() {
     const info = document.createElement("div");
     info.id = "info";
     document.body.appendChild(info);
+    // Stairs Data
+    const stairsData = document.createElement("div");
+    stairsData.id = "stairs-data";
+    document.body.appendChild(stairsData);
     // Input
     const div = document.createElement("textarea");
     div.id = "data";
     document.body.appendChild(div);
-    div.value = "0 0 0\n2 1 1 1 2 1\n1 0 1\n1 1 1";
-    parseContent(div.value, scene);
+    div.value = `2 -1 0
+1 4 1 1 1 3
+-1 0 2
+4 1 1 1 3 1
+0 2 -1
+1 1 4 3 1 1
+-2 -2 -2
+4 3.5 3 5 4 2 2 5 4 4 2 5 3 4 3.5 3.5 3 4
+1 1 1
+2 2 2
+-5 3 -4
+9 1 8
+-4 -5 3
+7 8 1
+3 -4 -5
+1 7 9`;
+    /*
+
+
+`2 0 0
+1 3 2
+0 0 2
+3 2 1
+0 2 0
+2 1 3
+1 1 1
+1 1 1
+0 0 0
+2 2 1 2 1 2 1 2 2`;
+*/ parseContent(div.value, scene);
     div.oninput = ()=>{
         if (div.value) parseContent(div.value, scene);
     };
+// console.time("test")
+// dushnikMillerDim([[0,1,2,5],[0,1,3,4],[0,2,3,4],[1,2,3,4]], 4)
+// console.timeEnd("test")
 }
 function drawHalfAxis(scene, length, color, direction) {
     var material = new _three.LineBasicMaterial({
@@ -32342,8 +32411,40 @@ var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "Stair", ()=>Stair);
 parcelHelpers.export(exports, "stairsIntersection", ()=>stairsIntersection);
-parcelHelpers.export(exports, "computeSimplicialComplex", ()=>computeSimplicialComplex);
+parcelHelpers.export(exports, "computeIntersectionComplex", ()=>computeIntersectionComplex);
+parcelHelpers.export(exports, "eqSet", ()=>eqSet);
 parcelHelpers.export(exports, "printASC", ()=>printASC);
+parcelHelpers.export(exports, "isPacking", ()=>isPacking);
+parcelHelpers.export(exports, "checkContactDimension", ()=>checkContactDimension) /*
+LENT 
+2 0 0
+1 3 2
+0 0 2
+3 2 1
+0 2 0
+2 1 3
+1 1 1
+1 1 1
+0 0 0
+2 2 1 2 2 1 1 2 2
+-1 -1 -1
+1 4 4 4 4 1 4 1 4
+
+PIRE : 5min
+2 0 0
+1 3 2
+0 0 2
+3 2 1
+0 2 0
+2 1 3
+1 1 1
+1 1 1
+0 0 0
+2 2 1 2 1 2 1 2 2
+-1 -1 -1
+1 4 4 4 4 1 4 1 4
+
+*/ ;
 function intervalIntersection(a, b, c, d) {
     // return (c <= a && a <= d) || (a <= c && c <= b)
     return d >= a && c <= b;
@@ -32375,6 +32476,74 @@ function boxesIntersectionDim(xIntervals, yIntervals, zIntervals) {
     if (xdim == -1 || ydim == -1 || zdim == -1) return -1;
     else return xdim + ydim + zdim;
 }
+function auxStairsIntersectionDim(stairs, i, xIntervals, yIntervals, zIntervals) {
+    if (i >= stairs.length) return boxesIntersectionDim(xIntervals, yIntervals, zIntervals);
+    const stair = stairs[i];
+    let currentd = undefined;
+    for (const dim of stair.dims){
+        xIntervals.push([
+            stair.c.x,
+            stair.c.x + dim.x
+        ]);
+        yIntervals.push([
+            stair.c.y,
+            stair.c.y + dim.y
+        ]);
+        zIntervals.push([
+            stair.c.z,
+            stair.c.z + dim.z
+        ]);
+        const d = auxStairsIntersectionDim(stairs, i + 1, xIntervals, yIntervals, zIntervals);
+        xIntervals.pop();
+        yIntervals.pop();
+        zIntervals.pop();
+        if (typeof d == "undefined") return undefined;
+        else if (typeof currentd == "undefined") currentd = d;
+        else {
+            if (currentd == -1) currentd = d;
+            else if (d == -1) ;
+            else if (d != currentd) return undefined;
+        }
+    }
+    return currentd;
+}
+function stairsIntersectionDim(stairs) {
+    const xIntervals = [];
+    const yIntervals = [];
+    const zIntervals = [];
+    return auxStairsIntersectionDim(stairs, 0, xIntervals, yIntervals, zIntervals);
+}
+function auxStairsIntersectionDimV2(stairs, i, xIntervals, yIntervals, zIntervals) {
+    if (i >= stairs.length) return boxesIntersectionDim(xIntervals, yIntervals, zIntervals);
+    const stair = stairs[i];
+    let currentd = -1;
+    for (const dim of stair.dims){
+        xIntervals.push([
+            stair.c.x,
+            stair.c.x + dim.x
+        ]);
+        yIntervals.push([
+            stair.c.y,
+            stair.c.y + dim.y
+        ]);
+        zIntervals.push([
+            stair.c.z,
+            stair.c.z + dim.z
+        ]);
+        const d = auxStairsIntersectionDimV2(stairs, i + 1, xIntervals, yIntervals, zIntervals);
+        xIntervals.pop();
+        yIntervals.pop();
+        zIntervals.pop();
+        if (d > currentd) currentd = d;
+    }
+    return currentd;
+}
+function stairsIntersectionDimV2(stairs) {
+    const xIntervals = [];
+    const yIntervals = [];
+    const zIntervals = [];
+    return auxStairsIntersectionDimV2(stairs, 0, xIntervals, yIntervals, zIntervals);
+}
 class Stair {
     constructor(c, dims){
         this.c = c;
@@ -32382,11 +32551,11 @@ class Stair {
     }
 }
 function auxStairsIntersection(stairs, i, xIntervals, yIntervals, zIntervals) {
-    if (i >= stairs.length) {
-        const interDim = boxesIntersectionDim(xIntervals, yIntervals, zIntervals);
-        if (interDim >= 0) console.log(interDim);
-        return intervalsIntersection(xIntervals) && intervalsIntersection(yIntervals) && intervalsIntersection(zIntervals);
-    }
+    if (i >= stairs.length) // const interDim = boxesIntersectionDim(xIntervals, yIntervals, zIntervals);
+    // if (interDim >= 0){
+    //     console.log(interDim)
+    // }
+    return intervalsIntersection(xIntervals) && intervalsIntersection(yIntervals) && intervalsIntersection(zIntervals);
     const stair = stairs[i];
     for (const dim of stair.dims){
         xIntervals.push([
@@ -32413,34 +32582,118 @@ function stairsIntersection(stairs) {
     const zIntervals = [];
     return auxStairsIntersection(stairs, 0, xIntervals, yIntervals, zIntervals);
 }
-function computeSimplicialComplex(stairs) {
-    console.log("compute complex:");
-    const faces = new Array();
-    for(let i = 0; i < stairs.length; i++){
-        for(let j = i + 1; j < stairs.length; j++)if (stairsIntersection([
-            stairs[i],
-            stairs[j]
-        ])) faces.push(new Set([
-            i,
-            j
-        ]));
+function auxComputeIC(stairs, clique, cliqueNeighbors) {
+    if (cliqueNeighbors.size == 0) {
+        const copyClique = new Set(clique);
+        return new Set([
+            copyClique
+        ]);
     }
-    for(let i = 0; i < stairs.length; i++)for(let j = i + 1; j < stairs.length; j++){
-        for(let k = j + 1; k < stairs.length; k++)if (stairsIntersection([
-            stairs[i],
-            stairs[j],
-            stairs[k]
-        ])) faces.push(new Set([
-            i,
-            j,
-            k
-        ]));
+    const maximalSuperClique = new Set();
+    for (const neighbor of cliqueNeighbors){
+        clique.add(neighbor);
+        const newNeighbors = new Set();
+        for (const n2 of cliqueNeighbors){
+            if (clique.has(n2)) continue;
+            const stairsClique = new Array();
+            for(let j = 0; j < stairs.length; j++)if (clique.has(j)) stairsClique.push(stairs[j]);
+            stairsClique.push(stairs[n2]);
+            if (stairsIntersection(stairsClique)) newNeighbors.add(n2);
+        }
+        for (const c of auxComputeIC(stairs, clique, newNeighbors)){
+            let found = false;
+            for (const c2 of maximalSuperClique)if (eqSet(c, c2)) {
+                found = true;
+                break;
+            }
+            if (found == false) maximalSuperClique.add(c);
+        }
+        clique.delete(neighbor);
     }
+    return maximalSuperClique;
+}
+function computeIntersectionComplex(stairs) {
+    const neighbors = new Set();
+    for(let j = 0; j < stairs.length; j++)neighbors.add(j);
+    const faces = auxComputeIC(stairs, new Set(), neighbors);
     return faces;
+}
+function eqSet(xs, ys) {
+    return xs.size === ys.size && [
+        ...xs
+    ].every((x)=>ys.has(x));
 }
 function printASC(faces) {
     console.log("faces:");
     for (const f of faces)console.log(f);
+}
+function isPacking(stairs) {
+    for(let i = 0; i < stairs.length; i++)for(let j = i + 1; j < stairs.length; j++){
+        const dim = stairsIntersectionDim([
+            stairs[i],
+            stairs[j]
+        ]);
+        if (typeof dim == "undefined" || dim == 3) return false;
+    }
+    return true;
+}
+function checkContactDimension(stairs) {
+    for(let i = 0; i < stairs.length; i++)for(let j = i + 1; j < stairs.length; j++){
+        const dim = stairsIntersectionDim([
+            stairs[i],
+            stairs[j]
+        ]);
+        if (typeof dim == "undefined") return [
+            i,
+            j
+        ];
+        else if (dim != 2 && dim >= 0) return [
+            i,
+            j
+        ];
+    }
+    for(let i = 0; i < stairs.length; i++){
+        for(let j = i + 1; j < stairs.length; j++)for(let k = j + 1; k < stairs.length; k++){
+            const dim = stairsIntersectionDim([
+                stairs[i],
+                stairs[j],
+                stairs[k]
+            ]);
+            if (typeof dim == "undefined") return [
+                i,
+                j,
+                k
+            ];
+            else if (dim != 1 && dim >= 0) return [
+                i,
+                j,
+                k
+            ];
+        }
+    }
+    for(let i = 0; i < stairs.length; i++)for(let j = i + 1; j < stairs.length; j++){
+        for(let k = j + 1; k < stairs.length; k++)for(let l = k + 1; l < stairs.length; l++){
+            const dim = stairsIntersectionDim([
+                stairs[i],
+                stairs[j],
+                stairs[k],
+                stairs[l]
+            ]);
+            if (typeof dim == "undefined") return [
+                i,
+                j,
+                k,
+                l
+            ];
+            else if (dim != 0 && dim >= 0) return [
+                i,
+                j,
+                k,
+                l
+            ];
+        }
+    }
+    return undefined;
 }
 
 },{"@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"mlVJW":[function(require,module,exports) {

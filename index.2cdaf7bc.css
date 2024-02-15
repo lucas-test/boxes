@@ -3,16 +3,22 @@ body {
 }
 
 #info {
-  width: 150px;
-  height: 300px;
+  width: 180px;
   position: fixed;
-  bottom: 0;
-  left: 0;
+  top: 0;
+  right: 0;
   overflow: scroll;
 }
 
+#stairs-data {
+  width: 100px;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+}
+
 #data {
-  width: 150px;
+  width: 350px;
   height: 300px;
   position: fixed;
   top: 0;
